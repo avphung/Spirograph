@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mô Phỏng Cơ Cấu Tay Đòn Vẽ Spirograph Lego</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: manipulation;
+        }
+        /* Style cho canvas */
+        canvas {
+            display: block;
+            border-radius: 0.75rem;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-slate-800 border-b border-slate-700 p-4">
+        <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-indigo-600 rounded-lg">
+                    <i class="fa-solid font-bold text-xl fa-pen-nib"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">Mô Phỏng Cơ Cấu Tay Đòn Vẽ Hoa Văn</h1>
+                    <p class="text-xs text-slate-400">Thiết bị vẽ Spirograph bằng thanh liên kết Lego</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <button id="btnPlayPause" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-lg transition flex items-center gap-2 text-sm shadow">
+                    <i class="fa-solid fa-play" id="playIcon"></i> <span id="playText">Chạy</span>
+                </button>
+                <button id="btnClear" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-lg transition flex items-center gap-2 text-sm">
+                    <i class="fa-solid fa-rotate-right"></i> Xóa nét vẽ
+                </button>
+                <button id="btnDownload" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg transition flex items-center gap-2 text-sm shadow">
+                    <i class="fa-solid fa-download"></i> Lưu hình
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Canvas Area (Giữa & Trái trên Desktop) -->
+        <div class="lg:col-span-2 flex flex-col gap-3">
+            <div class="relative bg-slate-800 border border-slate-700 rounded-xl p-2 flex-1 flex items-center justify-center min-h-[450px]">
+                <canvas id="simCanvas" class="bg-slate-950 w-full h-full"></canvas>
+                
+                <!-- Hiển thị Overlay số vòng xoay -->
+                <div class="absolute top-4 left-4 bg-slate-900/80 backdrop-blur border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-mono text-slate-300">
+                    Trạng thái: <span id="statusText" class="text-emerald-400 font-semibold">Sẵn sàng</span>
+                </div>
+            </div>
+
+            <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-3 text-xs text-slate-400 flex justify-between items-center">
+                <span><i class="fa-solid fa-circle-info text-indigo-400 mr-1"></i> Bàn giấy xoay bên dưới + Tay đòn mang bút chuyển động bên trên để tạo hoa văn.</span>
+                <label class="inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="chkShowLinkage" class="sr-only peer" checked>
+                    <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                    <span class="ml-2 text-xs font-medium text-slate-300">Hiện khung Lego</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Controls Area (Bên Phải) -->
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-5 flex flex-col gap-5 overflow-y-auto max-h-[750px]">
+            <h2 class="font-semibold text-base border-b border-slate-700 pb-2 text-slate-200 flex items-center gap-2">
+                <i class="fa-solid fa-sliders text-indigo-400"></i> Điều Chỉnh Thông Số Động Học
+            </h2>
+
+            <!-- Thiết lập Bàn Giấy (Kích thước & Hình dạng) -->
+            <div class="space-y-3 bg-slate-900/50 p-3.5 rounded-lg border border-slate-700/50">
+                <div class="flex justify-between items-center">
+                    <label class="text-xs font-medium text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-note-sticky"></i> Bàn Giấy Dưới
+                    </label>
+                    <select id="selPaperShape" class="bg-slate-800 border border-slate-600 text-slate-200 text-xs rounded px-2 py-1 focus:outline-none focus:border-amber-400">
+                        <option value="square">Hình vuông</option>
+                        <option value="circle">Hình tròn</option>
+                        <option value="a4">Giấy A4 (Dọc)</option>
+                    </select>
+                </div>
+                
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center text-xs text-slate-400">
+                        <span>Kích thước giấy:</span>
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="numPaperSize" step="5" value="280" class="w-16 bg-slate-800 border border-slate-600 text-amber-400 font-mono text-xs rounded px-1.5 py-0.5 text-right focus:outline-none focus:border-amber-400">
+                            <span class="text-[10px] text-slate-500">px</span>
+                        </div>
+                    </div>
+                    <input type="range" id="sliderPaperSize" min="150" max="450" step="5" value="280" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500">
+                </div>
+
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center text-xs text-slate-400">
+                        <span>Tốc độ quay giấy:</span>
+                        <input type="number" id="numSpeed1" step="0.1" value="1" class="w-16 bg-slate-800 border border-slate-600 text-amber-400 font-mono text-xs rounded px-1.5 py-0.5 text-right focus:outline-none focus:border-amber-400">
+                    </div>
+                    <input type="range" id="sliderSpeed1" min="-5" max="5" step="0.1" value="1" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-500">
+                </div>
+            </div>
+
+            <!-- Động cơ trên 1 (Đĩa truyền động bên trái) -->
+            <div class="space-y-3 bg-slate-900/50 p-3.5 rounded-lg border border-slate-700/50">
+                <div class="flex justify-between items-center">
+                    <label class="text-xs font-medium text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-gear"></i> Động Cơ Trên 1 (Trái)
+                    </label>
+                </div>
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center text-xs text-slate-400">
+                        <span>Tốc độ quay:</span>
+                        <input type="number" id="numSpeed2" step="0.1" value="2.3" class="w-16 bg-slate-800 border border-slate-600 text-cyan-400 font-mono text-xs rounded px-1.5 py-0.5 text-right focus:outline-none focus:border-cyan-400">
+                    </div>
+                    <input type="range" id="sliderSpeed2" min="-10" max="10" step="0.1" value="2.3" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+                </div>
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center text-xs text-slate-400">
+                        <span>Bán kính đĩa (R1):</span>
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="numR1" step="1" value="45" class="w-16 bg-slate-800 border border-slate-600 text-slate-200 font-mono text-xs rounded px-1.5 py-0.5 text-right focus:outline-none focus:border-cyan-400">
+                            <span class="text-[10px] text-slate-500">px</span>
+                        </div>
+                    </div>
+                    <input type="range" id="sliderR1" min="5" max="100" step="1" value="45" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-cyan-500">
+                </div>
+            </div>
+
+            <!-- Động cơ trên 2 (Đĩa truyền động bên phải) -->
+            <div class="space-y-3 bg-slate-900/50 p-3.5 rounded-lg border border-slate-700/50">
+                <div class="flex justify-between items-center">
+                    <label class="text-xs font-medium text-purple-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-gear"></i> Động Cơ Trên 2 (Phải)
+                    </label>
+                </div>
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center text-xs text-slate-400">
+                        <span>Tốc độ quay:</span>
+                        <input type="number" id="numSpeed3" step="0.1" value="-1.5" class="w-16 bg-slate-800 border border-slate-600 text-purple-400 font-mono text-xs rounded px-1.5 py-0.5 text-right focus:outline-none focus:border-purple-400">
+                    </div>
+                    <input type="range" id="sliderSpeed3" min="-10" max="10" step="0.1" value="-1.5" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-500">
+                </div>
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center text-xs text-slate-400">
+                        <span>Bán kính đĩa (R2):</span>
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="numR2" step="1" value="35" class="w-16 bg-slate-800 border border-slate-600 text-slate-200 font-mono text-xs rounded px-1.5 py-0.5 text-right focus:outline-none focus:border-purple-400">
+                            <span class="text-[10px] text-slate-500">px</span>
+                        </div>
+                    </div>
+                    <input type="range" id="sliderR2" min="5" max="100" step="1" value="35" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-500">
+                </div>
+            </div>
+
+            <!-- Kích thước tay đòn -->
+            <div class="space-y-3 bg-slate-900/50 p-3.5 rounded-lg border border-slate-700/50">
+                <label class="text-xs font-medium text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <i class="fa-solid fa-code-branch"></i> Chiều Dài Tay Đòn Liên Kết
+                </label>
+                
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center text-xs text-slate-400">
+                        <span>Thanh đòn trái (L1):</span>
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="numL1" step="1" value="215" class="w-16 bg-slate-800 border border-slate-600 text-slate-200 font-mono text-xs rounded px-1.5 py-0.5 text-right focus:outline-none focus:border-emerald-400">
+                            <span class="text-[10px] text-slate-500">px</span>
+                        </div>
+                    </div>
+                    <input type="range" id="sliderL1" min="60" max="350" step="1" value="215" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                </div>
+
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center text-xs text-slate-400">
+                        <span>Thanh đòn phải (L2):</span>
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="numL2" step="1" value="215" class="w-16 bg-slate-800 border border-slate-600 text-slate-200 font-mono text-xs rounded px-1.5 py-0.5 text-right focus:outline-none focus:border-emerald-400">
+                            <span class="text-[10px] text-slate-500">px</span>
+                        </div>
+                    </div>
+                    <input type="range" id="sliderL2" min="60" max="350" step="1" value="215" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+                </div>
+            </div>
+
+            <!-- Thiết lập bút vẽ -->
+            <div class="space-y-3 bg-slate-900/50 p-3.5 rounded-lg border border-slate-700/50">
+                <label class="text-xs font-medium text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <i class="fa-solid fa-paintbrush"></i> Nét Bút
+                </label>
+                
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-slate-400">Màu bút:</span>
+                    <div class="flex gap-2">
+                        <button class="color-btn w-6 h-6 rounded-full bg-cyan-400 ring-2 ring-white/50" data-color="#22d3ee"></button>
+                        <button class="color-btn w-6 h-6 rounded-full bg-rose-500" data-color="#f43f5e"></button>
+                        <button class="color-btn w-6 h-6 rounded-full bg-amber-400" data-color="#fbbf24"></button>
+                        <button class="color-btn w-6 h-6 rounded-full bg-emerald-400" data-color="#34d399"></button>
+                        <button class="color-btn w-6 h-6 rounded-full bg-purple-400" data-color="#c084fc"></button>
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <div class="flex justify-between items-center text-xs text-slate-400">
+                        <span>Độ nét bút:</span>
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="numPenWidth" step="0.5" value="1.5" class="w-16 bg-slate-800 border border-slate-600 text-slate-200 font-mono text-xs rounded px-1.5 py-0.5 text-right focus:outline-none focus:border-rose-400">
+                            <span class="text-[10px] text-slate-500">px</span>
+                        </div>
+                    </div>
+                    <input type="range" id="sliderPenWidth" min="0.5" max="5" step="0.5" value="1.5" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-rose-500">
+                </div>
+            </div>
+
+            <!-- Các tỉ lệ mẫu có sẵn (Presets) -->
+            <div class="space-y-2">
+                <label class="text-xs font-medium text-slate-400 uppercase tracking-wider">Mẫu hoa văn có sẵn:</label>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <button class="preset-btn p-2 bg-slate-700 hover:bg-slate-600 rounded text-slate-200 transition text-left" data-s1="1" data-s2="2.5" data-s3="-1.5" data-r1="40" data-r2="35" data-l1="215" data-l2="215">
+                        🌸 Mẫu Hoa Đối Xứng
+                    </button>
+                    <button class="preset-btn p-2 bg-slate-700 hover:bg-slate-600 rounded text-slate-200 transition text-left" data-s1="0.5" data-s2="-3.2" data-s3="4.1" data-r1="55" data-r2="25" data-l1="225" data-l2="205">
+                        🌀 Xoắn Đa Tần Số
+                    </button>
+                    <button class="preset-btn p-2 bg-slate-700 hover:bg-slate-600 rounded text-slate-200 transition text-left" data-s1="1" data-s2="5" data-s3="2.5" data-r1="35" data-r2="45" data-l1="210" data-l2="210">
+                        🕸️ Lưới Kép Đa Chiều
+                    </button>
+                    <button class="preset-btn p-2 bg-slate-700 hover:bg-slate-600 rounded text-slate-200 transition text-left" data-s1="-1" data-s2="1.33" data-s3="-2.66" data-r1="50" data-r2="50" data-l1="215" data-l2="215">
+                        💎 Vòng Cung Hình Học
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // Các phần tử DOM
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Buttons & Status
+        const btnPlayPause = document.getElementById('btnPlayPause');
+        const playIcon = document.getElementById('playIcon');
+        const playText = document.getElementById('playText');
+        const btnClear = document.getElementById('btnClear');
+        const btnDownload = document.getElementById('btnDownload');
+        const statusText = document.getElementById('statusText');
+        const chkShowLinkage = document.getElementById('chkShowLinkage');
+        const selPaperShape = document.getElementById('selPaperShape');
+
+        // Sliders & Number inputs pairs
+        const controls = [
+            { slider: 'sliderPaperSize', num: 'numPaperSize' },
+            { slider: 'sliderSpeed1', num: 'numSpeed1' },
+            { slider: 'sliderSpeed2', num: 'numSpeed2' },
+            { slider: 'sliderSpeed3', num: 'numSpeed3' },
+            { slider: 'sliderR1', num: 'numR1' },
+            { slider: 'sliderR2', num: 'numR2' },
+            { slider: 'sliderL1', num: 'numL1' },
+            { slider: 'sliderL2', num: 'numL2' },
+            { slider: 'sliderPenWidth', num: 'numPenWidth' }
+        ];
+
+        // Trạng thái mô phỏng
+        let isRunning = true;
+        let angle1 = 0; // Góc của bàn xoay dưới (Giấy)
+        let angle2 = 0; // Góc của đĩa truyền động trên 1 (Trái)
+        let angle3 = 0; // Góc của đĩa truyền động trên 2 (Phải)
+        let penColor = '#22d3ee'; // Màu nét bút mặc định
+
+        // Canvas phụ chứa đường vẽ (tọa độ tương đối theo gốc giấy)
+        let traceCanvas = document.createElement('canvas');
+        let traceCtx = traceCanvas.getContext('2d');
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width - 16;
+            canvas.height = rect.height - 16;
+
+            // Đặt kích thước traceCanvas đủ lớn để chứa trọn các vệt bút xoay trên bàn
+            traceCanvas.width = 1000;
+            traceCanvas.height = 1000;
+            traceCtx.clearRect(0, 0, traceCanvas.width, traceCanvas.height);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // Cấu hình vị trí cố định của các trục động cơ
+        function getMechanismConfig() {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2 + 50;
+
+            // Trục bàn xoay giấy (Nằm ở giữa phía dưới)
+            const baseCenter = { x: centerX, y: centerY };
+
+            // Động cơ trên 1 (Trái) & 2 (Phải) - Đặt khoảng cách sao cho vị trí trung bình bút rơi trúng tâm giấy
+            const crankCenter1 = { x: centerX - 110, y: centerY - 185 };
+            const crankCenter2 = { x: centerX + 110, y: centerY - 185 };
+
+            return { baseCenter, crankCenter1, crankCenter2 };
+        }
+
+        // Lấy thông số giấy hiện tại
+        function getPaperDimensions() {
+            const size = getValue('numPaperSize');
+            const shape = selPaperShape.value;
+            let w = size, h = size;
+
+            if (shape === 'a4') {
+                w = size * 0.707; // Tỉ lệ A4 chuẩn (1 : sqrt(2))
+                h = size;
+            }
+
+            return { shape, width: w, height: h, size };
+        }
+
+        // Kiểm tra điểm (x, y) trên hệ tọa độ giấy có nằm trong phạm vi tờ giấy không
+        function isPointOnPaper(x, y) {
+            const paper = getPaperDimensions();
+            if (paper.shape === 'circle') {
+                const radius = paper.size / 2;
+                return Math.hypot(x, y) <= radius;
+            } else {
+                return Math.abs(x) <= paper.width / 2 && Math.abs(y) <= paper.height / 2;
+            }
+        }
+
+        // Đồng bộ dữ liệu 2 chiều giữa Slider và Ô nhập số
+        controls.forEach(pair => {
+            const sliderEl = document.getElementById(pair.slider);
+            const numEl = document.getElementById(pair.num);
+
+            sliderEl.addEventListener('input', () => {
+                numEl.value = sliderEl.value;
+            });
+
+            numEl.addEventListener('input', () => {
+                if (numEl.value !== '') {
+                    sliderEl.value = numEl.value;
+                }
+            });
+        });
+
+        // Xóa nét vẽ khi đổi hình dạng giấy
+        selPaperShape.addEventListener('change', () => {
+            traceCtx.clearRect(0, 0, traceCanvas.width, traceCanvas.height);
+            lastPaperPoint = null;
+        });
+
+        // Lấy giá trị số an toàn từ input
+        function getValue(id) {
+            const val = parseFloat(document.getElementById(id).value);
+            return isNaN(val) ? 0 : val;
+        }
+
+        // Tính toán động học cơ cấu liên kết 2 động cơ trên
+        function calculateKinematics() {
+            const config = getMechanismConfig();
+
+            // Vị trí chốt quay đĩa 1 (Trái)
+            const r1 = getValue('numR1');
+            const crankPin1 = {
+                x: config.crankCenter1.x + r1 * Math.cos(angle2),
+                y: config.crankCenter1.y + r1 * Math.sin(angle2)
+            };
+
+            // Vị trí chốt quay đĩa 2 (Phải)
+            const r2 = getValue('numR2');
+            const crankPin2 = {
+                x: config.crankCenter2.x + r2 * Math.cos(angle3),
+                y: config.crankCenter2.y + r2 * Math.sin(angle3)
+            };
+
+            // Giao điểm 2 thanh liên kết (Khớp nối mang bút)
+            const L1 = getValue('numL1');
+            const L2 = getValue('numL2');
+
+            const dx = crankPin2.x - crankPin1.x;
+            const dy = crankPin2.y - crankPin1.y;
+            const d = Math.hypot(dx, dy);
+
+            // Kiểm tra khả năng vươn của cơ cấu
+            if (d > L1 + L2 || d < Math.abs(L1 - L2) || d === 0) {
+                return null; // Cơ cấu bị kẹt/quá giới hạn
+            }
+
+            const a = (L1 * L1 - L2 * L2 + d * d) / (2 * d);
+            const h = Math.sqrt(Math.max(0, L1 * L1 - a * a));
+
+            const x2 = crankPin1.x + (dx * a) / d;
+            const y2 = crankPin1.y + (dy * a) / d;
+
+            // Đổi dấu nghiệm hình học: Khớp nối bút mở ngược xuống phía dưới hướng về bàn giấy
+            const penPosWorld = {
+                x: x2 - (h * dy) / d,
+                y: y2 + (h * dx) / d
+            };
+
+            // Tính tọa độ điểm tương đối so với bàn giấy xoay (với gốc tọa độ ở tâm giấy)
+            const relX = penPosWorld.x - config.baseCenter.x;
+            const relY = penPosWorld.y - config.baseCenter.y;
+
+            const paperRotatedX = relX * Math.cos(-angle1) - relY * Math.sin(-angle1);
+            const paperRotatedY = relX * Math.sin(-angle1) + relY * Math.cos(-angle1);
+
+            return {
+                crankPin1,
+                crankPin2,
+                penPosWorld,
+                paperPoint: { x: paperRotatedX, y: paperRotatedY }
+            };
+        }
+
+        let lastPaperPoint = null;
+
+        function update() {
+            if (!isRunning) return;
+
+            const speed1 = getValue('numSpeed1') * 0.015;
+            const speed2 = getValue('numSpeed2') * 0.025;
+            const speed3 = getValue('numSpeed3') * 0.025;
+
+            angle1 += speed1;
+            angle2 += speed2;
+            angle3 += speed3;
+
+            const kinematics = calculateKinematics();
+
+            if (kinematics) {
+                const curPoint = kinematics.paperPoint;
+
+                // Vẽ liên tục mọi vị trí của bút (kể cả ra ngoài giấy)
+                if (lastPaperPoint) {
+                    traceCtx.save();
+                    // Tâm của traceCanvas đặt ở giữa (500, 500)
+                    traceCtx.translate(traceCanvas.width / 2, traceCanvas.height / 2);
+
+                    traceCtx.beginPath();
+                    traceCtx.moveTo(lastPaperPoint.x, lastPaperPoint.y);
+                    traceCtx.lineTo(curPoint.x, curPoint.y);
+                    traceCtx.strokeStyle = penColor;
+                    traceCtx.lineWidth = getValue('numPenWidth');
+                    traceCtx.lineCap = 'round';
+                    traceCtx.stroke();
+
+                    traceCtx.restore();
+                }
+
+                lastPaperPoint = curPoint;
+                
+                if (isPointOnPaper(curPoint.x, curPoint.y)) {
+                    statusText.innerText = "Đang vẽ trên giấy...";
+                    statusText.className = "text-emerald-400 font-semibold";
+                } else {
+                    statusText.innerText = "Bút di chuyển ngoài giấy";
+                    statusText.className = "text-amber-400 font-semibold";
+                }
+            } else {
+                statusText.innerText = "Cơ cấu bị kẹt (Vượt độ dài thanh)";
+                statusText.className = "text-rose-400 font-semibold";
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const config = getMechanismConfig();
+            const kinematics = calculateKinematics();
+            const paper = getPaperDimensions();
+
+            // 1. VẼ BÀN XOAY VÀ CÁC NẾT VẼ (BAO GỒM CẢ NGOÀI VÀ TRONG GIẤY)
+            ctx.save();
+            ctx.translate(config.baseCenter.x, config.baseCenter.y);
+            ctx.rotate(angle1);
+
+            // Tờ giấy xoay phía dưới
+            ctx.beginPath();
+            if (paper.shape === 'circle') {
+                ctx.arc(0, 0, paper.size / 2, 0, Math.PI * 2);
+            } else {
+                ctx.rect(-paper.width / 2, -paper.height / 2, paper.width, paper.height);
+            }
+
+            // Vẽ phông nền tờ giấy
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = 'rgba(0,0,0,0.4)';
+            ctx.shadowBlur = 15;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Vẽ TẤT CẢ các vệt bút (cả trong lẫn ngoài giấy)
+            ctx.drawImage(
+                traceCanvas,
+                -traceCanvas.width / 2,
+                -traceCanvas.height / 2
+            );
+
+            ctx.restore();
+
+            // 2. VẼ CƠ CẤU TAY ĐÒN LEGO 2 ĐỘNG CƠ
+            if (chkShowLinkage.checked && kinematics) {
+                
+                // Động cơ 1 (Trái)
+                ctx.beginPath();
+                ctx.arc(config.crankCenter1.x, config.crankCenter1.y, getValue('numR1'), 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(14, 116, 144, 0.4)';
+                ctx.fill();
+                ctx.strokeStyle = '#38bdf8';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(config.crankCenter1.x, config.crankCenter1.y, 5, 0, Math.PI * 2);
+                ctx.fillStyle = '#0284c7';
+                ctx.fill();
+
+                // Động cơ 2 (Phải)
+                ctx.beginPath();
+                ctx.arc(config.crankCenter2.x, config.crankCenter2.y, getValue('numR2'), 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(126, 34, 206, 0.4)';
+                ctx.fill();
+                ctx.strokeStyle = '#c084fc';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(config.crankCenter2.x, config.crankCenter2.y, 5, 0, Math.PI * 2);
+                ctx.fillStyle = '#9333ea';
+                ctx.fill();
+
+                // Thanh Lego Trái (Nối Động cơ 1 -> Bút)
+                drawLegoBeam(kinematics.crankPin1, kinematics.penPosWorld, '#0284c7', '#38bdf8');
+
+                // Thanh Lego Phải (Nối Động cơ 2 -> Bút)
+                drawLegoBeam(kinematics.crankPin2, kinematics.penPosWorld, '#7e22ce', '#c084fc');
+
+                // Vẽ Bút Vẽ
+                const pen = kinematics.penPosWorld;
+                const isOnPaper = isPointOnPaper(kinematics.paperPoint.x, kinematics.paperPoint.y);
+                
+                ctx.beginPath();
+                ctx.arc(pen.x, pen.y, 8, 0, Math.PI * 2);
+                ctx.fillStyle = '#1e293b';
+                ctx.fill();
+                ctx.strokeStyle = isOnPaper ? penColor : '#f59e0b'; // Màu xám/vàng báo hiệu khi ra ngoài
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.arc(pen.x, pen.y, 3, 0, Math.PI * 2);
+                ctx.fillStyle = penColor;
+                ctx.fill();
+            }
+        }
+
+        // Hàm vẽ thanh Lego Technic
+        function drawLegoBeam(p1, p2, colorDark, colorLight) {
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const angle = Math.atan2(dy, dx);
+            const dist = Math.hypot(dx, dy);
+
+            ctx.save();
+            ctx.translate(p1.x, p1.y);
+            ctx.rotate(angle);
+
+            const height = 16;
+            ctx.fillStyle = colorDark;
+            ctx.beginPath();
+            if (ctx.roundRect) {
+                ctx.roundRect(0, -height/2, dist, height, 8);
+            } else {
+                ctx.rect(0, -height/2, dist, height);
+            }
+            ctx.fill();
+
+            ctx.strokeStyle = colorLight;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Các lỗ cắm thanh Lego
+            const holeSpacing = 16;
+            ctx.fillStyle = '#0f172a';
+            for (let x = 12; x < dist - 6; x += holeSpacing) {
+                ctx.beginPath();
+                ctx.arc(x, 0, 3.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.restore();
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        // Tương tác nút bấm
+        btnPlayPause.addEventListener('click', () => {
+            isRunning = !isRunning;
+            if (isRunning) {
+                playIcon.className = 'fa-solid fa-pause';
+                playText.innerText = 'Tạm dừng';
+            } else {
+                playIcon.className = 'fa-solid fa-play';
+                playText.innerText = 'Tiếp tục';
+                statusText.innerText = 'Đã tạm dừng';
+                statusText.className = 'text-amber-400 font-semibold';
+            }
+        });
+
+        btnClear.addEventListener('click', () => {
+            traceCtx.clearRect(0, 0, traceCanvas.width, traceCanvas.height);
+            lastPaperPoint = null;
+        });
+
+        btnDownload.addEventListener('click', () => {
+            const paper = getPaperDimensions();
+            const exportCanvas = document.createElement('canvas');
+            const expSize = Math.max(paper.width, paper.height) + 120;
+            exportCanvas.width = expSize;
+            exportCanvas.height = expSize;
+            const expCtx = exportCanvas.getContext('2d');
+
+            expCtx.fillStyle = '#0f172a';
+            expCtx.fillRect(0, 0, expSize, expSize);
+
+            expCtx.save();
+            expCtx.translate(expSize / 2, expSize / 2);
+
+            // Nét vẽ toàn bộ
+            expCtx.drawImage(
+                traceCanvas, 
+                -traceCanvas.width / 2, 
+                -traceCanvas.height / 2
+            );
+
+            expCtx.restore();
+
+            const link = document.createElement('a');
+            link.download = 'spirograph-art.png';
+            link.href = exportCanvas.toDataURL();
+            link.click();
+        });
+
+        // Đổi màu bút
+        document.querySelectorAll('.color-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('ring-2', 'ring-white/50'));
+                btn.classList.add('ring-2', 'ring-white/50');
+                penColor = btn.dataset.color;
+            });
+        });
+
+        // Thiết lập Presets
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const setVal = (idNum, idSlider, val) => {
+                    document.getElementById(idNum).value = val;
+                    document.getElementById(idSlider).value = val;
+                };
+
+                setVal('numSpeed1', 'sliderSpeed1', btn.dataset.s1);
+                setVal('numSpeed2', 'sliderSpeed2', btn.dataset.s2);
+                setVal('numSpeed3', 'sliderSpeed3', btn.dataset.s3);
+                setVal('numR1', 'sliderR1', btn.dataset.r1);
+                setVal('numR2', 'sliderR2', btn.dataset.r2);
+                setVal('numL1', 'sliderL1', btn.dataset.l1);
+                setVal('numL2', 'sliderL2', btn.dataset.l2);
+
+                traceCtx.clearRect(0, 0, traceCanvas.width, traceCanvas.height);
+                lastPaperPoint = null;
+            });
+        });
+
+        window.onload = () => {
+            resizeCanvas();
+            playIcon.className = 'fa-solid fa-pause';
+            playText.innerText = 'Tạm dừng';
+            loop();
+        };
+    </script>
+</body>
+</html>
